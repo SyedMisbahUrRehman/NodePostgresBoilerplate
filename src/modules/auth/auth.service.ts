@@ -40,6 +40,7 @@ export async function signupService(env: Env, body: SignupBody) {
     data: {
       email,
       passwordHash,
+      emailVerifiedAt: env.EMAIL_VERIFICATION_ON_SIGNUP ? undefined : new Date(),
     },
   });
 
