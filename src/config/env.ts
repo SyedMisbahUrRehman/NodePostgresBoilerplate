@@ -20,6 +20,7 @@ const trustProxySchema = z
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
+  DB_PROVIDER: z.enum(['sqlite', 'postgresql']).default('postgresql'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   APP_URL: z.string().url('APP_URL must be a valid URL'),
   API_PREFIX: z.string().default('/api/v1'),
@@ -51,6 +52,34 @@ export const envSchema = z.object({
   CORS_ORIGIN: z.string().default('*'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+}).superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && env.DB_PROVIDER === 'sqlite') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['DB_PROVIDER'],
+      message: 'SQLite is only supported for local development and tests',
+    });
+  }
+
+  if (env.DB_PROVIDER === 'sqlite' && !env.DATABASE_URL.startsWith('file:')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['DATABASE_URL'],
+      message: 'SQLite DATABASE_URL must start with file:',
+    });
+  }
+
+  if (
+    env.DB_PROVIDER === 'postgresql' &&
+    !env.DATABASE_URL.startsWith('postgresql://') &&
+    !env.DATABASE_URL.startsWith('postgres://')
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['DATABASE_URL'],
+      message: 'PostgreSQL DATABASE_URL must start with postgresql:// or postgres://',
+    });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

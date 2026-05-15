@@ -1,15 +1,16 @@
-# Node.js + Express + TypeScript + Prisma + PostgreSQL
+# Node.js + Express + TypeScript + Prisma + PostgreSQL / SQLite
 
 Production-oriented REST API boilerplate with JWT access tokens, opaque refresh tokens (SHA-256 hashed in the database), Argon2 password hashing, SMTP email (password reset + optional email verification), structured env validation, and consistent JSON response envelopes.
 
 ## Requirements
 
 - Node.js 20+
-- PostgreSQL 14+
+- PostgreSQL 14+ for production
+- SQLite for local development
 
 ## Quick start
 
-1. Copy environment file and adjust secrets:
+1. Copy environment file and adjust secrets. The example uses SQLite for local development:
 
    ```bash
    cp .env.example .env
@@ -22,7 +23,7 @@ Production-oriented REST API boilerplate with JWT access tokens, opaque refresh 
    npm run db:generate
    ```
 
-3. Create the database and run migrations:
+3. Create the local SQLite database and run migrations:
 
    ```bash
    npm run db:migrate
@@ -43,10 +44,14 @@ Production-oriented REST API boilerplate with JWT access tokens, opaque refresh 
 | `npm start`       | Run compiled app from `dist/`        |
 | `npm run lint`    | ESLint on `src/`                     |
 | `npm run format`  | Prettier write                       |
-| `npm run db:generate` | `prisma generate`                |
-| `npm run db:migrate`  | `prisma migrate dev`             |
-| `npm run db:push`     | `prisma db push` (prototyping)   |
-| `npm run db:studio`   | Prisma Studio                    |
+| `npm run db:generate` | Generate Prisma Client for `DB_PROVIDER` |
+| `npm run db:migrate`  | Run migrations for `DB_PROVIDER` |
+| `npm run db:push`     | Push schema for `DB_PROVIDER` (prototyping) |
+| `npm run db:studio`   | Prisma Studio for `DB_PROVIDER` |
+| `npm run db:generate:postgres` | Generate Prisma Client for PostgreSQL |
+| `npm run db:migrate:postgres`  | Run PostgreSQL migrations |
+| `npm run db:generate:sqlite`   | Generate Prisma Client for SQLite |
+| `npm run db:migrate:sqlite`    | Run SQLite migrations |
 
 ## Environment
 
@@ -54,6 +59,8 @@ All variables are validated at startup via Zod in [`src/config/env.ts`](src/conf
 
 Notable flags:
 
+- **`DB_PROVIDER`**: `sqlite` for local development or `postgresql` for production. SQLite is rejected when `NODE_ENV=production`.
+- **`DATABASE_URL`**: must match `DB_PROVIDER` (`file:./dev.db` for SQLite, `postgresql://...` or `postgres://...` for Postgres).
 - **`LOG_LEVEL`**: `fatal` \| `error` \| `warn` \| `info` \| `debug` \| `trace` \| `silent` (Pino).
 - **`ENABLE_REQUEST_LOGS`**: `true` / `false` — HTTP access-style logs via `pino-http`.
 - **`ENABLE_DEBUG_LOGS`**: `true` / `false` — when `NODE_ENV=development`, enables verbose Prisma query logging.
@@ -63,6 +70,31 @@ Notable flags:
 - **`EMAIL_VERIFICATION_ON_SIGNUP`**: sends verification email and creates `EmailVerificationToken` rows.
 
 JWT secrets must be at least **32 characters** in all environments (enforced by env schema).
+
+## Database Providers
+
+Prisma does not allow switching the datasource provider from `DATABASE_URL` alone, so this project keeps provider-specific schemas:
+
+- [`prisma/schema.prisma`](prisma/schema.prisma) is the PostgreSQL schema and production default.
+- [`prisma/sqlite/schema.prisma`](prisma/sqlite/schema.prisma) is the local development SQLite schema.
+
+Use `.env` to select the provider:
+
+```env
+# local development
+NODE_ENV=development
+DB_PROVIDER=sqlite
+DATABASE_URL=file:./dev.db
+```
+
+```env
+# production
+NODE_ENV=production
+DB_PROVIDER=postgresql
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app_db?schema=public
+```
+
+The `db:*` scripts route Prisma to the correct schema and fail fast if `DB_PROVIDER` and `DATABASE_URL` do not agree.
 
 ## API
 
@@ -131,7 +163,8 @@ Password reset emails link to `{APP_URL}/reset-password?token=...` — point you
 - [`src/server.ts`](src/server.ts) — loads `.env`, validates config, bootstraps the app.
 - [`src/app.ts`](src/app.ts) — Express middleware and routes.
 - [`src/modules/auth`](src/modules/auth) — auth routes, controller, service, validation.
-- [`prisma/schema.prisma`](prisma/schema.prisma) — data models.
+- [`prisma/schema.prisma`](prisma/schema.prisma) — production PostgreSQL data models.
+- [`prisma/sqlite/schema.prisma`](prisma/sqlite/schema.prisma) — local SQLite data models.
 
 ## License
 

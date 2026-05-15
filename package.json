@@ -15,10 +15,14 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"prisma/**/*.prisma\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"prisma/**/*.prisma\"",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:generate": "node scripts/prisma.js generate",
+    "db:migrate": "node scripts/prisma.js migrate dev",
+    "db:push": "node scripts/prisma.js db push",
+    "db:studio": "node scripts/prisma.js studio",
+    "db:generate:postgres": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate:postgres": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:generate:sqlite": "prisma generate --schema prisma/sqlite/schema.prisma",
+    "db:migrate:sqlite": "prisma migrate dev --schema prisma/sqlite/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",

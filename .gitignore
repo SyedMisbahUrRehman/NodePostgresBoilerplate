@@ -3,6 +3,8 @@ dist/
 .env
 .env.local
 *.log
+*.db
+*.db-journal
 .DS_Store
 coverage/
 .idea/
