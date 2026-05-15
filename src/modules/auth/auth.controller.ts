@@ -28,7 +28,10 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
   const env = getEnv();
   const body = req.validatedBody as SignupBody;
   const result = await signupService(env, body);
-  sendSuccess(res, 201, SuccessCode.SIGNUP_SUCCESSFUL, result);
+  const code = env.EMAIL_VERIFICATION_ON_SIGNUP
+    ? SuccessCode.EMAIL_VERIFICATION_SENT
+    : SuccessCode.SIGNUP_SUCCESSFUL;
+  sendSuccess(res, 201, code, result);
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {

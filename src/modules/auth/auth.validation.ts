@@ -1,40 +1,42 @@
 import { z } from 'zod';
+import { ErrorCode } from '../../common/codes.js';
+
+const emailSchema = z.string().trim().email({ message: ErrorCode.INVALID_EMAIL }).max(320);
+const signupPasswordSchema = z
+  .string()
+  .min(8, { message: ErrorCode.INVALID_PASSWORD })
+  .max(128, { message: ErrorCode.INVALID_PASSWORD });
+const requiredStringSchema = z.string().min(1);
 
 export const signupBodySchema = z.object({
-  email: z.string().trim().email({ message: 'INVALID_EMAIL' }).max(320),
-  password: z
-    .string()
-    .min(8, { message: 'INVALID_PASSWORD' })
-    .max(128, { message: 'INVALID_PASSWORD' }),
+  email: emailSchema,
+  password: signupPasswordSchema,
 });
 
 export const loginBodySchema = z.object({
-  email: z.string().trim().email({ message: 'INVALID_EMAIL' }).max(320),
-  password: z.string().min(1),
+  email: emailSchema,
+  password: requiredStringSchema,
 });
 
 export const refreshTokenBodySchema = z.object({
-  refreshToken: z.string().min(1),
+  refreshToken: requiredStringSchema,
 });
 
 export const logoutBodySchema = z.object({
-  refreshToken: z.string().min(1),
+  refreshToken: requiredStringSchema,
 });
 
 export const forgotPasswordBodySchema = z.object({
-  email: z.string().trim().email({ message: 'INVALID_EMAIL' }).max(320),
+  email: emailSchema,
 });
 
 export const resetPasswordBodySchema = z.object({
-  token: z.string().min(1),
-  password: z
-    .string()
-    .min(8, { message: 'INVALID_PASSWORD' })
-    .max(128, { message: 'INVALID_PASSWORD' }),
+  token: requiredStringSchema,
+  password: signupPasswordSchema,
 });
 
 export const verifyEmailBodySchema = z.object({
-  token: z.string().min(1),
+  token: requiredStringSchema,
 });
 
 export type SignupBody = z.infer<typeof signupBodySchema>;

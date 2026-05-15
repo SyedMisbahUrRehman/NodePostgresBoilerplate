@@ -1,10 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import jwt from 'jsonwebtoken';
 import { AppError } from '../common/AppError.js';
 import { ErrorCode } from '../common/codes.js';
 import { sendError } from '../common/apiResponse.js';
 import { logger } from '../common/logger.js';
+import { jwtErrorToAppError } from '../lib/jwt.utils.js';
 
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof AppError) {
@@ -22,13 +22,9 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
 
-  if (err instanceof jwt.TokenExpiredError) {
-    sendError(res, 401, ErrorCode.TOKEN_EXPIRED);
-    return;
-  }
-
-  if (err instanceof jwt.JsonWebTokenError) {
-    sendError(res, 401, ErrorCode.INVALID_TOKEN);
+  const authError = jwtErrorToAppError(err);
+  if (authError) {
+    sendError(res, authError.statusCode, authError.code);
     return;
   }
 

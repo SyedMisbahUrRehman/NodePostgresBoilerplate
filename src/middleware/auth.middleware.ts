@@ -1,11 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import type { ZodTypeAny } from 'zod';
 import { AppError } from '../common/AppError.js';
 import { ErrorCode } from '../common/codes.js';
 import { sendError } from '../common/apiResponse.js';
 import { getEnv } from '../config/env.js';
-import { verifyAccessToken } from '../lib/jwt.utils.js';
+import { jwtErrorToAppError, verifyAccessToken } from '../lib/jwt.utils.js';
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
@@ -23,12 +22,8 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
       req.auth = { userId: payload.sub, email: payload.email };
       next();
     } catch (err) {
-      if (err instanceof jwt.TokenExpiredError) {
-        throw new AppError(401, ErrorCode.TOKEN_EXPIRED);
-      }
-      if (err instanceof jwt.JsonWebTokenError) {
-        throw new AppError(401, ErrorCode.INVALID_TOKEN);
-      }
+      const authError = jwtErrorToAppError(err);
+      if (authError) throw authError;
       throw err;
     }
   } catch (e) {

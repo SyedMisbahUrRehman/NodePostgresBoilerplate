@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 import type { StringValue } from 'ms';
+import { AppError } from '../common/AppError.js';
+import { ErrorCode } from '../common/codes.js';
 import type { Env } from '../config/env.js';
 
 export type AccessTokenPayload = {
@@ -35,4 +37,16 @@ export function verifyAccessToken(env: Env, token: string): AccessTokenPayload {
     throw new Error('Invalid access token');
   }
   return { sub, email, typ: 'access' };
+}
+
+export function jwtErrorToAppError(err: unknown): AppError | null {
+  if (err instanceof jwt.TokenExpiredError) {
+    return new AppError(401, ErrorCode.TOKEN_EXPIRED);
+  }
+
+  if (err instanceof jwt.JsonWebTokenError) {
+    return new AppError(401, ErrorCode.INVALID_TOKEN);
+  }
+
+  return null;
 }

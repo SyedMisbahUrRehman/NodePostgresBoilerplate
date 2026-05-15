@@ -27,6 +27,36 @@ import type {
   VerifyEmailBody,
 } from './auth.validation.js';
 
+type AuthTokenUser = {
+  id: string;
+  email: string;
+  emailVerifiedAt: Date | null;
+};
+
+async function createRefreshToken(env: Env, userId: string): Promise<string> {
+  const plain = generateOpaqueToken();
+  const tokenHash = sha256Hex(plain);
+  await prisma.refreshToken.create({
+    data: {
+      userId,
+      tokenHash,
+      expiresAt: getRefreshExpiresAt(env),
+    },
+  });
+  return plain;
+}
+
+async function issueAuthTokens(env: Env, user: AuthTokenUser) {
+  const accessToken = signAccessToken(env, { sub: user.id, email: user.email });
+  const refreshToken = await createRefreshToken(env, user.id);
+
+  return {
+    user: toPublicUser(user),
+    accessToken,
+    refreshToken,
+  };
+}
+
 export async function signupService(env: Env, body: SignupBody) {
   const existing = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } });
   if (existing) {
@@ -58,22 +88,7 @@ export async function signupService(env: Env, body: SignupBody) {
     }
   }
 
-  const accessToken = signAccessToken(env, { sub: user.id, email: user.email });
-  const refreshPlain = generateOpaqueToken();
-  const refreshHash = sha256Hex(refreshPlain);
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: refreshHash,
-      expiresAt: getRefreshExpiresAt(env),
-    },
-  });
-
-  return {
-    user: toPublicUser(user),
-    accessToken,
-    refreshToken: refreshPlain,
-  };
+  return issueAuthTokens(env, user);
 }
 
 export async function loginService(env: Env, body: LoginBody) {
@@ -88,22 +103,7 @@ export async function loginService(env: Env, body: LoginBody) {
     throw new AppError(401, ErrorCode.INVALID_CREDENTIALS);
   }
 
-  const accessToken = signAccessToken(env, { sub: user.id, email: user.email });
-  const refreshPlain = generateOpaqueToken();
-  const refreshHash = sha256Hex(refreshPlain);
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: refreshHash,
-      expiresAt: getRefreshExpiresAt(env),
-    },
-  });
-
-  return {
-    user: toPublicUser(user),
-    accessToken,
-    refreshToken: refreshPlain,
-  };
+  return issueAuthTokens(env, user);
 }
 
 export async function refreshTokenService(env: Env, body: RefreshTokenBody) {
@@ -126,22 +126,7 @@ export async function refreshTokenService(env: Env, body: RefreshTokenBody) {
   });
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: record.userId } });
-  const accessToken = signAccessToken(env, { sub: user.id, email: user.email });
-  const refreshPlain = generateOpaqueToken();
-  const refreshHash = sha256Hex(refreshPlain);
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: refreshHash,
-      expiresAt: getRefreshExpiresAt(env),
-    },
-  });
-
-  return {
-    user: toPublicUser(user),
-    accessToken,
-    refreshToken: refreshPlain,
-  };
+  return issueAuthTokens(env, user);
 }
 
 export async function logoutService(_env: Env, body: LogoutBody) {
