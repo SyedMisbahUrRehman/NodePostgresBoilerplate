@@ -19,6 +19,7 @@ export const ErrorMessage: Record<(typeof ErrorCode)[keyof typeof ErrorCode], st
   [ErrorCode.INVALID_PASSWORD]: 'Invalid password.',
   [ErrorCode.EMAIL_ALREADY_REGISTERED]: 'An account with this email already exists.',
   [ErrorCode.INVALID_CREDENTIALS]: 'Invalid email or password.',
+  [ErrorCode.EMAIL_NOT_VERIFIED]: 'Please verify your email before signing in.',
   [ErrorCode.UNAUTHORIZED]: 'Authentication required.',
   [ErrorCode.TOKEN_EXPIRED]: 'Token has expired.',
   [ErrorCode.INVALID_TOKEN]: 'Invalid or malformed token.',

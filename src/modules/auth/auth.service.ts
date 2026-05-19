@@ -57,7 +57,19 @@ async function issueAuthTokens(env: Env, user: AuthTokenUser) {
   };
 }
 
-export async function signupService(env: Env, body: SignupBody) {
+type SignupServiceResult =
+  | {
+      mode: 'active';
+      user: ReturnType<typeof toPublicUser>;
+      accessToken: string;
+      refreshToken: string;
+    }
+  | {
+      mode: 'pending_verification';
+      user: ReturnType<typeof toPublicUser>;
+    };
+
+export async function signupService(env: Env, body: SignupBody): Promise<SignupServiceResult> {
   const existing = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } });
   if (existing) {
     throw new AppError(409, ErrorCode.EMAIL_ALREADY_REGISTERED);
@@ -86,9 +98,11 @@ export async function signupService(env: Env, body: SignupBody) {
     } catch {
       logger.warn({ userId: user.id }, 'Signup succeeded but verification email failed');
     }
+    return { mode: 'pending_verification', user: toPublicUser(user) };
   }
 
-  return issueAuthTokens(env, user);
+  const tokens = await issueAuthTokens(env, user);
+  return { mode: 'active', ...tokens };
 }
 
 export async function loginService(env: Env, body: LoginBody) {
@@ -101,6 +115,10 @@ export async function loginService(env: Env, body: LoginBody) {
   const ok = await argon2.verify(user.passwordHash, body.password);
   if (!ok) {
     throw new AppError(401, ErrorCode.INVALID_CREDENTIALS);
+  }
+
+  if (env.EMAIL_VERIFICATION_ON_SIGNUP && !user.emailVerifiedAt) {
+    throw new AppError(403, ErrorCode.EMAIL_NOT_VERIFIED);
   }
 
   return issueAuthTokens(env, user);
@@ -126,6 +144,9 @@ export async function refreshTokenService(env: Env, body: RefreshTokenBody) {
   });
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: record.userId } });
+  if (env.EMAIL_VERIFICATION_ON_SIGNUP && !user.emailVerifiedAt) {
+    throw new AppError(403, ErrorCode.EMAIL_NOT_VERIFIED);
+  }
   return issueAuthTokens(env, user);
 }
 

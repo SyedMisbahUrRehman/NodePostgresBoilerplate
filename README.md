@@ -41,15 +41,18 @@ Production-oriented REST API boilerplate with JWT access tokens, opaque refresh 
 | ----------------- | ------------------------------------ |
 | `npm run dev`     | `tsx watch` on `src/server.ts`       |
 | `npm run build`   | Compile TypeScript to `dist/`        |
+| `npm run typecheck` | `tsc --noEmit`                    |
 | `npm start`       | Run compiled app from `dist/`        |
 | `npm run lint`    | ESLint on `src/`                     |
-| `npm run format`  | Prettier write                       |
+| `npm run format`  | Prettier (`src/`) + `prisma format` for both schemas |
+| `npm run format:check` | Prettier check on `src/` only |
 | `npm run db:generate` | Generate Prisma Client for `DB_PROVIDER` |
 | `npm run db:migrate`  | Run migrations for `DB_PROVIDER` |
 | `npm run db:push`     | Push schema for `DB_PROVIDER` (prototyping) |
 | `npm run db:studio`   | Prisma Studio for `DB_PROVIDER` |
 | `npm run db:generate:postgres` | Generate Prisma Client for PostgreSQL |
-| `npm run db:migrate:postgres`  | Run PostgreSQL migrations |
+| `npm run db:migrate:postgres`  | Run PostgreSQL migrations (dev) |
+| `npm run db:migrate:deploy:postgres` | Apply committed PostgreSQL migrations in production (`migrate deploy`) |
 | `npm run db:generate:sqlite`   | Generate Prisma Client for SQLite |
 | `npm run db:migrate:sqlite`    | Run SQLite migrations |
 
@@ -67,7 +70,11 @@ Notable flags:
 - **`ENABLE_STACK_TRACE`**: `true` / `false` — include `stack` on JSON error responses (avoid in production).
 - **`PORT`**: HTTP listen port.
 - **`TRUST_PROXY`**: forwarded for `X-Forwarded-*` when behind a reverse proxy (`true`, `false`, or hop count).
-- **`EMAIL_VERIFICATION_ON_SIGNUP`**: sends verification email and creates `EmailVerificationToken` rows.
+- **`CORS_ORIGIN`**: comma-separated browser origins, or `*` for development. In **`NODE_ENV=production`**, wildcard `*` is rejected — use an explicit list.
+- **`CORS_CREDENTIALS`**: `true` / `false`. Must be `false` when `CORS_ORIGIN` is `*` (browsers disallow credentialed wildcard CORS). Use `true` only with an explicit allowlist of real origins.
+- **`AUTH_RATE_LIMIT_WINDOW_MS` / `AUTH_RATE_LIMIT_MAX`**: stricter limits for all routes under `{API_PREFIX}/auth` (in addition to the global limiter).
+- **`RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`**: global API rate limit (excluding `GET /health`).
+- **`EMAIL_VERIFICATION_ON_SIGNUP`**: when `true`, sends a verification email on signup, **does not issue JWT/refresh tokens until the email is verified**, and blocks `login` / `refresh-token` until `emailVerifiedAt` is set (via `POST /auth/verify-email`).
 
 JWT secrets must be at least **32 characters** in all environments (enforced by env schema).
 
@@ -96,6 +103,16 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app_db?schema=public
 
 The `db:*` scripts route Prisma to the correct schema and fail fast if `DB_PROVIDER` and `DATABASE_URL` do not agree.
 
+### PostgreSQL migrations (production)
+
+Initial schema is versioned under [`prisma/migrations`](prisma/migrations) for PostgreSQL. In production, run migrations before starting the app, for example:
+
+```bash
+npm run db:migrate:deploy:postgres
+```
+
+Use `npm run db:migrate:postgres` during development to create new migrations. SQLite uses a separate migration history under [`prisma/sqlite/migrations`](prisma/sqlite/migrations).
+
 ## API
 
 Base path: `{API_PREFIX}` (default `/api/v1`).
@@ -108,8 +125,8 @@ Base path: `{API_PREFIX}` (default `/api/v1`).
 
 | Method | Path               | Body                                                                 | Auth   |
 | ------ | ------------------ | -------------------------------------------------------------------- | ------ |
-| POST   | `/signup`          | `{ "email", "password" }`                                          | —      |
-| POST   | `/login`           | `{ "email", "password" }`                                          | —      |
+| POST   | `/signup`          | `{ "email", "password" }` — returns **`accessToken` + `refreshToken`** when `EMAIL_VERIFICATION_ON_SIGNUP=false`. When `EMAIL_VERIFICATION_ON_SIGNUP=true`, returns **`user` only** (no tokens) until `POST /verify-email`, then the user can `POST /login`. |
+| POST   | `/login`           | `{ "email", "password" }` — blocked with **`EMAIL_NOT_VERIFIED`** (403) when verification is enabled and the email is not verified yet. |
 | POST   | `/refresh-token`   | `{ "refreshToken" }`                                                 | —      |
 | POST   | `/logout`          | `{ "refreshToken" }`                                                 | —      |
 | POST   | `/forgot-password` | `{ "email" }`                                                      | —      |
@@ -117,7 +134,7 @@ Base path: `{API_PREFIX}` (default `/api/v1`).
 | POST   | `/verify-email`    | `{ "token" }` (from verification email)                            | —      |
 | GET    | `/me`              | —                                                                    | Bearer |
 
-Password rules: minimum **8** characters, max **128** (see Zod schemas in [`src/modules/auth/auth.validation.ts`](src/modules/auth/auth.validation.ts)).
+Password rules: minimum **8** characters, max **128**, at least **one letter** and **one digit** (see Zod schemas in [`src/modules/auth/auth.validation.ts`](src/modules/auth/auth.validation.ts)).
 
 ### Response shape
 
@@ -156,7 +173,8 @@ Password reset emails link to `{APP_URL}/reset-password?token=...` — point you
 - Refresh tokens are **never** stored in plaintext; only `sha256` of the opaque token is persisted.
 - Forgot-password responses are generic (`PASSWORD_RESET_EMAIL_SENT`) to reduce email enumeration.
 - Argon2 is used for password hashes.
-- Helmet, CORS, JSON body size limit, and global rate limiting are enabled by default.
+- Helmet (with JSON-API-friendly defaults), CORS aligned with browser rules, JSON body size limit, global rate limiting plus **stricter limits on `/auth`**, and **JWT access tokens pinned to `HS256`**.
+- `getEnv()` lazy-loads validated configuration on first use (after `dotenv` in `server.ts`).
 
 ## Project layout
 

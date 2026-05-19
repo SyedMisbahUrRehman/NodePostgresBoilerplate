@@ -10,15 +10,13 @@ export type AccessTokenPayload = {
   typ: 'access';
 };
 
-export function signAccessToken(
-  env: Env,
-  payload: Omit<AccessTokenPayload, 'typ'>,
-): string {
+export function signAccessToken(env: Env, payload: Omit<AccessTokenPayload, 'typ'>): string {
   const body: AccessTokenPayload = { ...payload, typ: 'access' };
   return jwt.sign(body, env.JWT_ACCESS_SECRET, {
     expiresIn: env.JWT_ACCESS_EXPIRES_IN as StringValue,
     issuer: 'api',
     audience: 'api-users',
+    algorithm: 'HS256',
   });
 }
 
@@ -26,6 +24,7 @@ export function verifyAccessToken(env: Env, token: string): AccessTokenPayload {
   const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET, {
     issuer: 'api',
     audience: 'api-users',
+    algorithms: ['HS256'],
   });
   if (typeof decoded === 'string' || !decoded || typeof decoded !== 'object') {
     throw new Error('Invalid token payload');

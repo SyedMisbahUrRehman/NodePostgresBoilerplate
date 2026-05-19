@@ -1,18 +1,19 @@
 import pino from 'pino';
+import { getEnv } from '../config/env.js';
 
-const level = process.env.LOG_LEVEL ?? 'info';
-const isProduction = process.env.NODE_ENV === 'production';
+const env = getEnv();
 
 export const logger = pino({
-  level,
-  transport: isProduction
-    ? undefined
-    : {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          ignore: 'pid,hostname',
-          translateTime: 'SYS:standard',
+  level: env.LOG_LEVEL,
+  transport:
+    env.NODE_ENV === 'production'
+      ? undefined
+      : {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            ignore: 'pid,hostname',
+            translateTime: 'SYS:standard',
+          },
         },
-      },
 });

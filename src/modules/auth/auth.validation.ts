@@ -5,7 +5,9 @@ const emailSchema = z.string().trim().email({ message: ErrorCode.INVALID_EMAIL }
 const signupPasswordSchema = z
   .string()
   .min(8, { message: ErrorCode.INVALID_PASSWORD })
-  .max(128, { message: ErrorCode.INVALID_PASSWORD });
+  .max(128, { message: ErrorCode.INVALID_PASSWORD })
+  .regex(/[A-Za-z]/, { message: ErrorCode.INVALID_PASSWORD })
+  .regex(/\d/, { message: ErrorCode.INVALID_PASSWORD });
 const requiredStringSchema = z.string().min(1);
 
 export const signupBodySchema = z.object({

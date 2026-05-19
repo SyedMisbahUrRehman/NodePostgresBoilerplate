@@ -18,8 +18,16 @@ export function createAuthRouter(): Router {
   router.post('/login', validateBody(loginBodySchema), authController.login);
   router.post('/refresh-token', validateBody(refreshTokenBodySchema), authController.refreshToken);
   router.post('/logout', validateBody(logoutBodySchema), authController.logout);
-  router.post('/forgot-password', validateBody(forgotPasswordBodySchema), authController.forgotPassword);
-  router.post('/reset-password', validateBody(resetPasswordBodySchema), authController.resetPassword);
+  router.post(
+    '/forgot-password',
+    validateBody(forgotPasswordBodySchema),
+    authController.forgotPassword,
+  );
+  router.post(
+    '/reset-password',
+    validateBody(resetPasswordBodySchema),
+    authController.resetPassword,
+  );
   router.post('/verify-email', validateBody(verifyEmailBodySchema), authController.verifyEmail);
   router.get('/me', requireAuth, authController.me);
 

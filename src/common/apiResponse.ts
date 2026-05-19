@@ -2,6 +2,7 @@ import type { Response } from 'express';
 import type { ErrorCodeType, SuccessCodeType } from './codes.js';
 import { SuccessMessage } from './messages.js';
 import { ErrorMessage } from './messages.js';
+import { getEnv } from '../config/env.js';
 
 export type ApiSuccess<T> = {
   success: true;
@@ -40,7 +41,7 @@ export function sendError(
   code: ErrorCodeType,
   options?: { message?: string; details?: unknown; stack?: string },
 ): void {
-  const showStack = process.env.ENABLE_STACK_TRACE === 'true';
+  const showStack = getEnv().ENABLE_STACK_TRACE;
   const body: ApiErrorBody = {
     success: false,
     code,

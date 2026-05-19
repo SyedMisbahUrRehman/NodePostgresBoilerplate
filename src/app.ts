@@ -19,11 +19,24 @@ export function createApp() {
     app.set('trust proxy', env.TRUST_PROXY);
   }
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
+  const corsOriginOption: boolean | string | string[] =
+    env.CORS_ORIGIN === '*'
+      ? '*'
+      : env.CORS_ORIGIN.split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+
   app.use(
     cors({
-      origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',').map((s) => s.trim()),
-      credentials: true,
+      origin: corsOriginOption,
+      credentials: env.CORS_CREDENTIALS,
     }),
   );
   app.use(express.json({ limit: '1mb' }));
@@ -40,11 +53,29 @@ export function createApp() {
   });
   app.use(limiter);
 
+  const authLimiter = rateLimit({
+    windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS,
+    max: env.AUTH_RATE_LIMIT_MAX,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      sendError(res, 429, ErrorCode.RATE_LIMIT_EXCEEDED);
+    },
+  });
+
   if (env.ENABLE_REQUEST_LOGS) {
     app.use(
       pinoHttp({
         logger,
         autoLogging: true,
+        serializers: {
+          req: (req) => {
+            const headers = { ...req.headers } as Record<string, unknown>;
+            if (headers.authorization) headers.authorization = '[Redacted]';
+            if (headers.cookie) headers.cookie = '[Redacted]';
+            return { method: req.method, url: req.url, headers };
+          },
+        },
         customLogLevel: (
           _req: express.Request,
           res: express.Response,
@@ -63,7 +94,7 @@ export function createApp() {
   });
 
   const apiPrefix = env.API_PREFIX.replace(/\/$/, '');
-  app.use(`${apiPrefix}/auth`, createAuthRouter());
+  app.use(`${apiPrefix}/auth`, authLimiter, createAuthRouter());
 
   app.use((_req, res) => {
     sendError(res, 404, ErrorCode.NOT_FOUND, {

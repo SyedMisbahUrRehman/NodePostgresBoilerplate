@@ -1,2 +1,0 @@
--- Initial migration placeholder; run `npm run db:migrate` to create real migration
--- Prisma migrate will replace this when you run migrate dev

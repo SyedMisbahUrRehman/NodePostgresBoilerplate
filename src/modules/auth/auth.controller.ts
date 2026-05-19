@@ -28,10 +28,15 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
   const env = getEnv();
   const body = req.validatedBody as SignupBody;
   const result = await signupService(env, body);
-  const code = env.EMAIL_VERIFICATION_ON_SIGNUP
-    ? SuccessCode.EMAIL_VERIFICATION_SENT
-    : SuccessCode.SIGNUP_SUCCESSFUL;
-  sendSuccess(res, 201, code, result);
+  if (result.mode === 'pending_verification') {
+    sendSuccess(res, 201, SuccessCode.EMAIL_VERIFICATION_SENT, { user: result.user });
+    return;
+  }
+  sendSuccess(res, 201, SuccessCode.SIGNUP_SUCCESSFUL, {
+    user: result.user,
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken,
+  });
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
